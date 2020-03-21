@@ -1,0 +1,112 @@
+openapi: 3.0.0
+info:
+  title: Dosentelefon
+  description: Wir vs. Virus
+  version: 1.0.0.0
+servers:
+  - url: https://TODO/v1
+    description: TODO
+
+paths:
+  /users:
+    post: 
+      summary: Add a new user. 
+      requestBody:
+        $ref: '#/components/requestBodies/userBody'   
+      responses:
+        '200':
+          description: Returns the new user. 
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user'
+              examples: 
+                UUIDxy:
+                  summary: Example of a User
+                  value:
+                    uuid: 550e8400-e29b-11d4-a716-446655440000
+                    username: Helden
+                    email: max@mustermann.de
+                    token: Todo
+                    newToken: Todo
+                    topicsOK: ["Corona"]
+                    topicsNotOK: []
+                    active: true
+                 
+  /user/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type : string
+    get:
+      summary: Returns a user by ID.
+      responses: 
+        '200':
+          description: Returns a valid user. 
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user'
+              examples: 
+                UUIDxy:
+                  summary: Example of a User
+                  value:
+                    uuid: 550e8400-e29b-11d4-a716-446655440000
+                    username: Helden
+                    email: max@mustermann.de
+                    token: Todo
+                    newToken: Todo
+                    topicsOK: ["Corona"]
+                    topicsNotOK: []
+                    active: true
+    put: 
+      summary: Update a user by ID. 
+      requestBody:
+        $ref: '#/components/requestBodies/userBody'
+    delete:
+      summary: Delete a user by ID. 
+      responses:
+        '204':
+          description: User deleted. 
+        '400':
+          description: Invalid userId supplied
+        '404':
+          description: User not found
+      
+components:
+  requestBodies:
+    userBody:
+      description: A JSON object containing a User. 
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/user'
+  schemas:
+    user:
+      properties:
+        uuid: 
+          type: string
+          description: uuid
+        username:
+          type: string
+        email:
+          type: string
+        token: 
+          type: string
+        newToken:
+          type: string
+        topicsOK:
+          type: array
+          items: 
+            type: string
+        topicsNotOK:
+          type: array
+          items:
+            type: string
+        active:
+          type: boolean
+      required:  
+        - name
