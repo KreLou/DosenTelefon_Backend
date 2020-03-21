@@ -1,0 +1,31 @@
+openapi: 3.0.0
+info: 
+  title: Dosentelefon - Filter Service API
+  description: TODO
+  version: 1.0.0.0
+  license: 
+    name: TODO
+
+servers: 
+  - url: https://TODO/v1
+    description: TODO
+
+paths: 
+  /filter:
+    get:
+      summary: Returns a list of filters.
+      description: ""
+      responses: 
+        '200': 
+          description: Returns a list of filters.
+          content: 
+            application/json: 
+              schema: 
+                type: array
+                items: 
+                  type: string
+              examples:
+                shortExample:
+                  summary: Returns a list of some filters currently availabe. 
+                  value: ['Corona']
+
