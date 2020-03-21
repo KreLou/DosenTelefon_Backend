@@ -1,0 +1,75 @@
+org: gadmeer
+app: dosentelefon
+service: dosentelefon-user-service
+
+frameworkVersion: ">=1.1.0 <2.0.0"
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+  region: eu-west-1
+
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
+
+functions:
+  create:
+    handler: users/create.create
+    events:
+      - http:
+          path: users
+          method: post
+          cors: true
+
+  get:
+    handler: users/get.get
+    events:
+      - http:
+          path: users/{userId}
+          method: get
+          cors: true
+
+  update:
+    handler: users/update.update
+    events:
+      - http:
+          path: users/{userId}
+          method: put
+          cors: true
+
+  delete:
+    handler: users/delete.delete
+    events:
+      - http:
+          path: users/{userId}
+          method: delete
+          cors: true
+
+resources:
+  Resources:
+    UsersDynamoDbTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: uuid
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: uuid
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
