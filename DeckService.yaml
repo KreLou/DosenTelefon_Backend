@@ -1,0 +1,67 @@
+openapi: 3.0.0
+info: 
+  title: Dosentelefon - Card Service API
+  description: TODO
+  version: 1.0.0.0
+  license: 
+    name: TODO
+
+servers: 
+  - url: https://TODO/v1
+    description: TODO
+
+paths: 
+  /decks:
+    get:
+      summary: Returns a list of deck names.
+      description: ""
+      responses: 
+        '200': 
+          description: Returns a list of deck names.
+          content: 
+            application/json: 
+              schema: 
+                type: array
+                items: 
+                  type: string
+              examples:
+                shortExample:
+                  summary: Returns a list of some decks names currently availabe. 
+                  value: ['Lustig', 'Philosophisch']
+
+  /deck/{name}:
+    get: 
+      summary: Returns a deck with questions. 
+      description: ""
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 50
+      responses: 
+        '200':
+          description: Returns a deck. 
+          content: 
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/deck'
+              examples: 
+                Philosophisch: 
+                  value:
+                    name: "Philosophisch"
+                    questions: ["Wie ist das Wetter bei dir?"]
+
+components:
+  schemas:
+
+    deck:
+      type: object
+      properties:
+        name:
+          type: string
+        questions:
+          type: array
+          items:
+            type: string
