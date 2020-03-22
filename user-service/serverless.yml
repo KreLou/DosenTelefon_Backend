@@ -8,10 +8,13 @@ provider:
   name: aws
   runtime: nodejs10.x
   region: eu-west-1
+  logs:
+    websocket: true
   iamManagedPolicies:
       - 'arn:aws:iam::411554656372:policy/DosenTelefonLambdaSES'
   environment:
     DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+    CONNECT_TABLE: ${self:service}-connect-${opt:stage, self:provider.stage}
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -22,6 +25,15 @@ provider:
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
       Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.CONNECT_TABLE}"
 
 functions:
   create:
@@ -56,6 +68,27 @@ functions:
           method: delete
           cors: true
 
+  connectHandler:
+    handler: lobby/connect.connectHandler
+    events:
+      - websocket:
+          route: $connect
+        #  authorizer: auth # references the auth function below
+
+  disconnectHandler:
+    handler: lobby/disconnect.disconnectHandler
+    events:
+      - websocket:
+          route: $disconnect
+  defaultHandler:
+    handler: lobby/default.defaultHandler
+    events:
+      - websocket:
+          route: $default
+  auth:
+    handler: lobby/auth.auth
+
+
 resources:
   Resources:
     UsersDynamoDbTable:
@@ -74,3 +107,19 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:provider.environment.DYNAMODB_TABLE}
+    ConnectDynamoDbTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: uuid
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: uuid
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.CONNECT_TABLE}

@@ -31,15 +31,31 @@ module.exports.get = (event, context, callback) => {
 
     if(result.Item){
       result.Item.token = "***";
-    }
-    if(result.Item){
       result.Item.newToken = "***";
+      // create a response
+      const response = {
+        statusCode: 200,
+        body: JSON.stringify(result.Item),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+        },
+      };
+      callback(null, response);
     }
-    // create a response
-    const response = {
-      statusCode: 200,
-      body: JSON.stringify(result.Item),
-    };
-    callback(null, response);
+    if(!result.Item){
+      // create a response
+      const response = {
+        statusCode: 404,
+        body: JSON.stringify({message:"User not found. "}),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+        },
+      };
+      callback(null, response);
+    }
+
+
   });
 };

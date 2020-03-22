@@ -24,9 +24,7 @@ module.exports.update = (event, context, callback) => {
     Key: {
       uuid: event.pathParameters.userId,
     },
-    ExpressionAttributeNames: {
-      '#token': 'token'
-    },
+
     ExpressionAttributeValues: {
       ':username': data.username,
       ':topicsOK': data.topicsOK,
@@ -36,9 +34,6 @@ module.exports.update = (event, context, callback) => {
     },
     UpdateExpression: 'SET ' +//
                         'username = :username, ' +//
-                        'email = :email, ' +//
-                        '#token = :token, ' +//
-                        'newToken = :newToken, ' +//
                         'topicsOK = :topicsOK, ' +//
                         'topicsNotOK = :topicsNotOK, ' +//
                         'active = :active, ' +//
@@ -53,7 +48,9 @@ module.exports.update = (event, context, callback) => {
       console.error(error);
       callback(null, {
         statusCode: error.statusCode || 501,
-        headers: { 'Content-Type': 'text/plain' },
+        headers: {   'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'text/plain' },
         body: 'Couldn\'t fetch the user.\n'+error.message
         +'\n fnVersion: '+context.functionVersion
         +'\n functionName: '+context.functionName,
