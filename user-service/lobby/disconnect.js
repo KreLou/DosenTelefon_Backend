@@ -14,7 +14,7 @@ module.exports.disconnectHandler = (event, context, callback) => {
   const params = {
     TableName: process.env.CONNECT_TABLE,
     Key: {
-      connectionId: connectionId,
+      connectId: connectionId,
     },
   };
 
@@ -37,7 +37,7 @@ module.exports.disconnectHandler = (event, context, callback) => {
   });
   const response = {
     statusCode: 200,
-    body: 'Disonnected.'
+    body: 'Disonnected. '+connectionId
   };
   callback(null, response);
 

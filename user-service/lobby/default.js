@@ -9,9 +9,8 @@ const dynamoDb = new AWS.DynamoDB.DocumentClient();
 module.exports.defaultHandler = (event, context, callback) => {
   const connectionId = event.requestContext.connectionId;
 
-
+  console.log("Hello world");
   const timestamp = new Date().getTime();
-  console.error(event.body)
   const data = JSON.parse(event.body);
 
   console.log("Default handler, got "+connectionId+" to dynamoDB");
@@ -21,12 +20,15 @@ module.exports.defaultHandler = (event, context, callback) => {
     Key: {
       connectId: connectionId,
     },
+    ExpressionAttributeNames: {
+      '#user': 'user'
+    },
     ExpressionAttributeValues: {
-      ':user': data.user,
+      ':user': data.uuid,
       ':updatedAt': timestamp
     },
     UpdateExpression: 'SET ' +//
-                        'user = :user, ' +//
+                        '#user = :user, ' +//
                         'updatedAt = :updatedAt',
     ReturnValues: 'ALL_NEW',
   };
@@ -45,6 +47,8 @@ module.exports.defaultHandler = (event, context, callback) => {
         +'\n fnVersion: '+context.functionVersion
         +'\n functionName: '+context.functionName,
       });
+      console.log("Default handler, got "+connectionId+" to dynamoDB");
+
       return;
     }
   });

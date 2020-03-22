@@ -10,5 +10,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/KreLou/DosenTelefon_Backend.git"
+  },
+  "devDependencies": {
+    "serverless-domain-manager": "^3.3.1"
   }
 }

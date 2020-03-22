@@ -18,8 +18,7 @@ module.exports.connectHandler = (event, context, callback) => {
   const params = {
     TableName: process.env.CONNECT_TABLE,
     Item: {
-      uuid: uuid.v1(),
-      //user:data.userUuid,
+      user:"connected",
       connectId:connectionId,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -48,7 +47,11 @@ module.exports.connectHandler = (event, context, callback) => {
   });
   const response = {
     statusCode: 200,
-    body: 'Connected.'
+    body: 'Connected.',
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Credentials': true
+    }
   };
   callback(null, response);
 

@@ -1,8 +1,19 @@
+plugins:
+  - serverless-domain-manager
+
 org: gadmeer
 app: dosentelefon
 service: dosentelefon-user-service
 
 frameworkVersion: ">=1.1.0 <2.0.0"
+custom:
+  customDomain:
+    domainName: api.${self:provider.stage}.dosen-telefon.de
+    basePath: ''
+    stage: ${self:provider.stage}
+    createRoute53Record: true
+    #certificateName: dosen-telefon.de
+
 
 provider:
   name: aws
@@ -73,6 +84,7 @@ functions:
     events:
       - websocket:
           route: $connect
+          cors: true
         #  authorizer: auth # references the auth function below
 
   disconnectHandler:
@@ -80,11 +92,13 @@ functions:
     events:
       - websocket:
           route: $disconnect
+          cors: true
   defaultHandler:
     handler: lobby/default.defaultHandler
     events:
       - websocket:
           route: $default
+          cors: true
   auth:
     handler: lobby/auth.auth
 
@@ -113,11 +127,11 @@ resources:
       Properties:
         AttributeDefinitions:
           -
-            AttributeName: uuid
+            AttributeName: connectId
             AttributeType: S
         KeySchema:
           -
-            AttributeName: uuid
+            AttributeName: connectId
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 1
