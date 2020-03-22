@@ -5,7 +5,7 @@ Wir haben daher diese Datenschutzerklärung erstellt, in der wir Ihnen unseren U
 
 Wir behalten uns vor, den Inhalt von Zeit zu Zeit anzupassen. Es empfiehlt sich daher, unsere Erklärung zur Datenverarbeitung in regelmäßigen Abständen erneut zur Kenntnis zu nehmen.
 
-= Zur Struktur der Datenschutzerklärung:=
+__ Zur Struktur der Datenschutzerklärung: __
 
 Unter II. finden Sie allgemeine Hinweise zum Umfang der Verarbeitung Ihrer personenbezogenen Daten, zur Rechtsgrundlage für die Datenverarbeitung, zur Speicherdauer sowie Löschung und insbesondere zu Ihren Rechten als betroffene Person.
 
