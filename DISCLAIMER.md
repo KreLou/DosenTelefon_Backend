@@ -12,8 +12,8 @@ Wenn Du dich in einer seelischen Notlage befindest oder therapeutische Gespräch
 
 Bundesweite Telefonseelsorge:
 
-*0800/111 0 111*
+=*0800/111 0 111*=
 
-*0800/111 0 222*
+=*0800/111 0 222*=
 
-*116 123*
+=*116 123*=
