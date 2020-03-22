@@ -11,7 +11,9 @@ module.exports.get = (event, context, callback) => {
       uuid: event.pathParameters.userId,
     },
   };
-
+  console.log("got request uuid: "+ event.pathParameters.userId);
+  console.log("query with params");
+  console.log(params);
   // fetch todo from the database
   dynamoDb.get(params, (error, result) => {
     // handle potential errors
@@ -24,8 +26,15 @@ module.exports.get = (event, context, callback) => {
       });
       return;
     }
-    result.Item.token = "***";
-    result.Item.newToken = "***";
+    console.log("result: ");
+    console.log(result);
+
+    if(result.Item){
+      result.Item.token = "***";
+    }
+    if(result.Item){
+      result.Item.newToken = "***";
+    }
     // create a response
     const response = {
       statusCode: 200,
