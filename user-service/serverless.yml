@@ -1,18 +1,8 @@
-plugins:
-  - serverless-domain-manager
-
 org: gadmeer
 app: dosentelefon
 service: dosentelefon-user-service
 
 frameworkVersion: ">=1.1.0 <2.0.0"
-custom:
-  customDomain:
-    domainName: api.${self:provider.stage}.dosen-telefon.de
-    basePath: ''
-    stage: ${self:provider.stage}
-    createRoute53Record: true
-    #certificateName: dosen-telefon.de
 
 
 provider:
@@ -23,6 +13,7 @@ provider:
     websocket: true
   iamManagedPolicies:
       - 'arn:aws:iam::411554656372:policy/DosenTelefonLambdaSES'
+      - 'arn:aws:iam::411554656372:policy/executeAPIDosenTelefon'
   environment:
     DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
     CONNECT_TABLE: ${self:service}-connect-${opt:stage, self:provider.stage}
