@@ -24,9 +24,6 @@ module.exports.update = (event, context, callback) => {
     Key: {
       uuid: event.pathParameters.userId,
     },
-    ExpressionAttributeNames: {
-      '#token': 'token'
-    },
     ExpressionAttributeValues: {
       ':username': data.username,
       ':topicsOK': data.topicsOK,
@@ -36,8 +33,6 @@ module.exports.update = (event, context, callback) => {
     },
     UpdateExpression: 'SET ' +//
                         'username = :username, ' +//
-                        'email = :email, ' +//
-                        
                         'topicsOK = :topicsOK, ' +//
                         'topicsNotOK = :topicsNotOK, ' +//
                         'active = :active, ' +//
