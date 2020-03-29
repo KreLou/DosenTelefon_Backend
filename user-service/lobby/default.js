@@ -2,318 +2,121 @@
 
 const uuid = require('uuid');
 const AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-dependencies
-var http = require('https');
 
-var region = "eu-west-1",
-    secretName = "DosenTelefon",
-    secret,
-    decodedBinarySecret;
+const connectionDB  =  require( '../libs/connection-db.js');
+const userDB  =  require( '../libs/user-db.js');
+const audioServer  =  require( '../libs/openvidu.js');
+const websockets  =  require( '../libs/websockets.js');
 
-// Create a Secrets Manager client
-var client = new AWS.SecretsManager({
-    region: region
-});
-var OPENVIDU_SERVER_SECRET ='';
-var OPENVIDU_SERVER_URL = "https://openvidu.dosen-telefon.de:4443";
-  await  new Promise((resolve, reject) => {
-client.getSecretValue({SecretId: secretName}, function(err, data) {
-    if (err) {
-        if (err.code === 'DecryptionFailureException')
-            // Secrets Manager can't decrypt the protected secret text using the provided KMS key.
-            // Deal with the exception here, and/or rethrow at your discretion.
-            throw err;
-        else if (err.code === 'InternalServiceErrorException')
-            // An error occurred on the server side.
-            // Deal with the exception here, and/or rethrow at your discretion.
-            throw err;
-        else if (err.code === 'InvalidParameterException')
-            // You provided an invalid value for a parameter.
-            // Deal with the exception here, and/or rethrow at your discretion.
-            throw err;
-        else if (err.code === 'InvalidRequestException')
-            // You provided a parameter value that is not valid for the current state of the resource.
-            // Deal with the exception here, and/or rethrow at your discretion.
-            throw err;
-        else if (err.code === 'ResourceNotFoundException')
-            // We can't find the resource that you asked for.
-            // Deal with the exception here, and/or rethrow at your discretion.
-            throw err;
-    }
-    else {
-        // Decrypts secret using the associated KMS CMK.
-        // Depending on whether the secret is a string or binary, one of these fields will be populated.
-        if ('SecretString' in data) {
-            secret = data.SecretString;
-            var OPENVIDU_SERVER_SECRET = secret;
-            resolve();
-        } else {
-            let buff = new Buffer(data.SecretBinary, 'base64');
-            decodedBinarySecret = buff.toString('ascii');
-        }
-    }
-
-    // Your code goes here.
-});
-}).promise();
-
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
-
-function linkUserToConnection(connectionId,userUuid){
-  const timestamp = new Date().getTime();
-  var returnData = {};
-  const params = {
-    TableName: process.env.CONNECT_TABLE,
-    Key: {
-      connectId: connectionId,
-    },
-    ExpressionAttributeNames: {
-      '#user': 'user'
-    },
-    ExpressionAttributeValues: {
-      ':user': userUuid,
-      ':updatedAt': timestamp
-    },
-    UpdateExpression: 'SET ' +//
-                        '#user = :user, ' +//
-                        'updatedAt = :updatedAt',
-    ReturnValues: 'ALL_NEW',
-  };
-
-
-  // update the todo in the database
-  dynamoDb.update(params, (error, result) => {
-    // handle potential errors
-    if (error) {
-      console.error("Error connecting user ''"+userUuid+"'' and connection '"+connectionId+"'")
-      console.error(error);
-      returnData.error = error;
-      returnData.statusCode = error.statusCode || 501;
-      returnData.message = error.message;
-    }
-    else {
-      returnData.statusCode = 200;
-      returnData.message = "Connection saved."
-      console.log("Connection for user ''"+userUuid+"'' and connection '"+connectionId+"' saved.")
-    }
-  });
-
-  return returnData;
-
-}
-
-function sendCallback(callback,returnData){
-  callback(null, {
+function wrapReturn(returnData){
+  return {
     statusCode: returnData.statusCode,
     headers: {   'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Credentials': true,
       'Content-Type': 'text/plain' },
     body: returnData.message
-  });
-
-}
-
-function findMatch(userUuid){
-  let returnData={};
-  const params = {
-    TableName: process.env.DYNAMODB_TABLE,
-    Key: {
-      uuid: userUuid,
-    }
-  };
-  dynamoDb.get(params, (error, result) => {
-    // handle potential errors
-    if (error) {
-      returnData.statusCode = error.statusCode || 501;
-      returnData.message = error.message;
-      returnData.error = error;
-      return;
-    }
-
-    if(result.Item){
-      returnData.statusCode =200;
-      result.Item.token = "***";
-      result.Item.newToken = "***";
-      returnData.body = result.Item;
-      // create a response
-    }
-  });
-  if(returnData.statusCode != 200 ){
-    return returnData;
   }
-
-  //find users which do not have things in interessted where the other have it in notInteressted.
-  const params = {
-    TableName: process.env.DYNAMODB_TABLE,
-    FilterExpression: "NOT contains (topicsNotOK, :topicsNotOK)",
-    ExpressionAttributeValues: {
-      ':topicsNotOK': returnData.body.topicsOK
-    },
-    Limit: 1
-  };
-
-  console.log(params);
-  // fetch todo from the database
-  dynamoDb.scan(params, (error, result) => {
-    if (err) {
-      console.log("Error", err);
-      returnData.statusCode = error.statusCode || 501;
-      returnData.message = error.message;
-      returnData.error = error;
-    } else {
-      //console.log("Success", data.Items);
-      if(data.Items.length != 0){
-        //just take the first one
-        let item = data.Items[0];
-        returnData.statusCode =200;
-        item.token = "***";
-        item.newToken = "***";
-        returnData.body = item;
-      }
-    }
-
-  });
-  return returnData;
 }
 
-// See https://openvidu.io/docs/reference-docs/REST-API/#post-apisessions
-function createCallSession(sessionName){
 
-    console.log(OPENVIDU_SERVER_SECRET);
-    return  new Promise((resolve, reject) => {
-      var data = JSON.stringify({ customSessionId: sessionName });
+module.exports.defaultHandler = async (event, context, callback) => {
+  const connectionId = event.requestContext.connectionId;
+  const data = JSON.parse(event.body);
+  let userUuid =data.body.uuid;
+  let returnData ={};
+  //TODO: verify token
 
-      var post_options = {
-          host: 'OPENVIDU_SERVER_URL',
-          port: '443',
-          path: "/api/sessions",
-          method: 'POST',
-          headers: {
-            Authorization: 'Basic ' + btoa('OPENVIDUAPP:' + OPENVIDU_SERVER_SECRET),
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(data)
-          }
-      };
+  console.log("Default handler, got "+connectionId);
 
-
-      var post_req = http.request(post_options, function(res) {
-        res.setEncoding('utf8');
-        res.on('data', function (data) {
-           console.log('Response: ' + data);
-           console.log(data);
-           resolve(data.id)
-          });
-          res.on('error', function (error) {
-             console.error('Error', error);
-             reject(error)
-            });
-        });
-
-        // post the data
-        post_req.write(data);
-        post_req.end();
-  });
-}
-
-function createTokens(sessionId, user1Uuid, user2Uuid){
-  // See https://openvidu.io/docs/reference-docs/REST-API/#post-apitokens
-  return new Promise((resolve, reject) => {
-    var data = JSON.stringify({ customSessionId: sessionName });
-
-    var post_options = {
-        host: 'OPENVIDU_SERVER_URL',
-        port: '443',
-        path: "/api/tokens",
-        method: 'POST',
-        headers: {
-          Authorization: 'Basic ' + btoa('OPENVIDUAPP:' + OPENVIDU_SERVER_SECRET),
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(data)
-        }
-    };
-
-    var post_req = http.request(post_options, function(res) {
-      res.setEncoding('utf8');
-      res.on('data', function (data) {
-         console.log('Response: ' + data);
-         console.log(data);
-         resolve(data.token)
-        });
-        res.on('error', function (error) {
-           console.error('Error', error);
-           reject(error)
-          });
+  if (typeof data.version !== 'number' || data.version !== 1) {
+      console.error('incorrect message');
+      callback(null, {
+        statusCode: 400,
+        headers: { 'Content-Type': 'text/plain' },
+        body: 'Message invalid.',
       });
+      return;
+  }
+  console.log("event:" +data.event);
+  switch (data.event){
+    case "link_user":
 
-      // post the data
-      post_req.write(data);
-      post_req.end();
+      console.log("link_user in database");
+      returnData = await connectionDB.linkUserToConnection(connectionId,userUuid);
+      console.log(returnData);
+      if(returnData.statusCode != 200){
+        return wrapReturn(returnData)
+      }
 
-  });
-}
+      var match = userDB.findMatch(userUuid);
 
+      if(match == undefined){
+        //don't send a websocket response back.
+        return wrapReturn({statusCode:200,message:"No match, found waiting."});
+      }
+      else {
+        //create session
+        var sessionId = audioServer.createCallSession(sha256(match.userUuid+userUuid))
+        //create tokens for both users
+        var tokens = audioServer.createTokens(sessionId, match.userUuid, userUuid);
+        //send both users the token
+        //TODO make code nicer https://github.com/aws-samples/simple-websockets-chat-app/blob/master/sendmessage/app.js
 
-function getConnection(userUuid){
-  const params = {
-    TableName: process.env.CONNECT_TABLE,
-    Key: {
-      user: userUuid,
-    },
-  };
-var returnData={};
-  // fetch todo from the database
-  dynamoDb.get(params, (error, result) => {
-    // handle potential errors
-    if (error) {
-      console.error(error);
-      returnData.statusCode=error.statusCode || 501;
-      returnData.message=error.message;
+        let connectionDetails = await connectionDB.getConnection(userUuid);
+        if(connectionDetails.statusCode != 200){
+          return wrapReturn(connectionDetails);
+        }
+        let connectionId = connectionDetails.body.connectId;
+        returnData = websockets.sendWebSocketMessage(connectionId, {
+          "version" : 1,
+          "event" : "call_request",
+          "body" : {
+              "openvidu": {
+                "sessionId":sessionId,
+                "token":tokens[userUuid]
+              },
+              "username": userDB.getUserDetails(userUuid).name,
+              "userUuid":userUuid
+            }
+          });
+          if(returnData.statusCode != 200){
+            return wrapReturn(callback, returnData);
+          }
+
+          returnData = websockets.sendWebSocketMessage(match.userUuid, {
+            "version" : 1,
+            "event" : "call_request",
+            "body" : {
+                "openvidu": {
+                  "sessionId":sessionId,
+                  "token":tokens[match.userUuid]
+                },
+                "username": match.name,
+                "userUuid": match.userUuid
+              }
+          });
+          if(returnData.statusCode != 200){
+            return wrapReturn(callback, returnData);
+          }
+          else {
+            return wrapReturn({statusCode:200,message:"Match found, tokens send."});
+          }
+      }
+
+      break;
+    default:
+      var errorMsg = 'Unkown event '+data.event;
+      console.error(errorMsg);
+      return wrapReturn({
+        statusCode: 400,
+        headers: { 'Content-Type': 'text/plain' },
+        body: errorMsg,
+      });
       return;
     }
-    if(!result.Item){
-      returnData.statusCode = 404;
-      returnData.message="Connection for user '"+userUuid+"' not found.";
-    }
-    else {
-      returnData.body = result;
-      returnData.statusCode = 200;
-    }
-    return returnData;
-});
-}
 
-function sendWebSocketMessage(userUuid, postData) {
-  let connectionDetails = getConnection(userUuid);
-  if(connectionDetails.statusCode != 200){
-    return connectionDetails;
-  }
-  let connectionId = connectionDetails.body.connectId;
-  let connectionData;
-  console.log("sending response to user " + userUuid);
-  const apigwManagementApi = new AWS.ApiGatewayManagementApi({
-    apiVersion: '2018-11-29',
-    endpoint: event.requestContext.domainName
-  });
+};
 
-  try {
-    let send = undefined;
-     send = async (connectionId, postData) => {
-       await apigwManagementApi.postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(postData)  }).promise();
-     }
-     send(connectionId, postData);
-     returnData.statusCode = 200;
-     returnData.message = `Message send to connection ${connectionId}`
-  } catch (e) {
-    returnData.statusCode = e.statusCode;
-    if (e.statusCode === 410) {
-      returnData.message = `Found stale connection ${connectionId}`;
-      returnData.error = e;
-      return returnData;
-    } else {
-      throw e;
-    }
-  }
-  return returnData;
-}
 
 function sha256(ascii) {
 	function rightRotate(value, amount) {
@@ -410,97 +213,4 @@ function sha256(ascii) {
 		}
 	}
 	return result;
-};
-
-module.exports.defaultHandler = (event, context, callback) => {
-  const connectionId = event.requestContext.connectionId;
-let returnData ={};
-  console.log("Default handler, got "+connectionId+" to dynamoDB");
-  console.log("secret: "+OPENVIDU_SERVER_SECRET);
-  const data = JSON.parse(event.body);
-  //TODO: verify token
-  console.log(data);
-  if (typeof data.version !== 'number' || data.version !== 1) {
-      console.error('incorrect message');
-      callback(null, {
-        statusCode: 400,
-        headers: { 'Content-Type': 'text/plain' },
-        body: 'Message invalid.',
-      });
-      return;
-  }
-
-  switch (data.event){
-    case "link_user":
-
-      returnData = linkUserToConnection(connectionId,data.body.uuid)
-
-      if(returnData.statusCode != 200){
-        sendCallback(callback, returnData);
-        return;
-      }
-
-      var match = findMatch(userUuid);
-
-      if(match == undefined){
-        //don't send a response back.
-        sendCallback(callback, {statusCode:200,message:"No match, found waiting."});
-        return;
-      }
-      else {
-        //create session
-        var sessionId = createCallSession(sha256(match.userUuid+userUuid))
-        //create tokens for both users
-        var tokens = createTokens(sessionId, match.userUuid, userUuid);
-        //send both users the token
-        //TODO make code nicer https://github.com/aws-samples/simple-websockets-chat-app/blob/master/sendmessage/app.js
-        returnData = sendWebSocketMessage(userUuid, {
-          "version" : 1,
-          "event" : "call_request",
-          "body" : {
-              "openvidu": {
-                "sessionId":sessionId,
-                "token":tokens[userUuid]
-              },
-              "username": getUserDetails(userUuid).name,
-              "userUuid":userUuid
-            }
-          });
-          if(returnData.statusCode != 200){
-            sendCallback(callback, returnData);
-            return;
-          }
-
-          returnData = sendWebSocketMessage(match.userUuid, {
-            "version" : 1,
-            "event" : "call_request",
-            "body" : {
-                "openvidu": {
-                  "sessionId":sessionId,
-                  "token":tokens[match.userUuid]
-                },
-                "username": match.name,
-                "userUuid": match.userUuid
-              }
-          });
-          if(returnData.statusCode != 200){
-            sendCallback(callback, returnData);
-            return;
-          }
-          else {
-            sendCallback(callback, {statusCode:200,message:"Match found, tokens send."});
-          }
-      }
-
-      break;
-    default:
-    var errorMsg = 'Unkown event '+data.event;
-    console.error(errorMsg);
-    callback(null, {
-      statusCode: 400,
-      headers: { 'Content-Type': 'text/plain' },
-      body: errorMsg,
-    });
-    return;
-  }
 };
