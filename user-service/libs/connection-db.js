@@ -33,7 +33,7 @@ module.exports.linkUserToConnection = (connectionId, userUuid) => {
     dynamoDb.update(params, (error, result) => {
       // handle potential errors
       if (error) {
-        console.error("Error connecting user ''"+userUuid+"'' and connection '"+connectionId+"'")
+        console.error("Error connecting user '"+userUuid+"' and connection '"+connectionId+"'")
         console.error(error);
         returnData.error = error;
         returnData.statusCode = error.statusCode || 501;
@@ -54,6 +54,7 @@ module.exports.linkUserToConnection = (connectionId, userUuid) => {
 
 module.exports.getConnection = (userUuid) => {
   return new Promise(function(resolve, reject) {
+    console.log("connection-db: loading connection for user: ",userUuid);
     let returnData={};
     const paramsForScan = {
       TableName: process.env.CONNECT_TABLE,
@@ -70,10 +71,10 @@ module.exports.getConnection = (userUuid) => {
     // fetch todo from the database
     dynamoDb.scan(paramsForScan, (error, data) => {
       if (error) {
-        console.log("Error", error);
+        console.error("connection-db: loading failed: ",error);
         reject(error);
       } else {
-        console.log("Success", data.Items);
+        console.log("connection-db: loaded: ", data.Items);
         if(data.Items && data.Items.length != 0){
           //just take the first one
           let item = data.Items[0];
@@ -83,6 +84,8 @@ module.exports.getConnection = (userUuid) => {
         else {
           returnData.statusCode = 404;
           returnData.message="Connection for user '"+userUuid+"' not found.";
+          console.log("connection-db: ", returnData.message);
+
         }
         resolve(returnData);
       }

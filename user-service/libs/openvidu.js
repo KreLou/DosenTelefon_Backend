@@ -16,10 +16,13 @@ var client = new AWS.SecretsManager({
 var OPENVIDU_SERVER_SECRET = "";
 var OPENVIDU_SERVER_URL = "openvidu.dosen-telefon.de";
 
-async function getSecret(){
-  secret =  await new Promise(function(resolve, reject) {
+function getSecret () {
+    return new Promise(function(resolve, reject) {
+      if(OPENVIDU_SERVER_SECRET != ""){
+        resolve(OPENVIDU_SERVER_SECRET);
+      }
+      else {
     client.getSecretValue({SecretId: secretName}, function(err, data) {
-
         if (err) {
             if (err.code === 'DecryptionFailureException')
                 // Secrets Manager can't decrypt the protected secret text using the provided KMS key.
@@ -52,24 +55,29 @@ async function getSecret(){
             // Depending on whether the secret is a string or binary, one of these fields will be populated.
 
             if ('SecretString' in data) {
-                secret = data.SecretString;
-                resolve(secret);
+              OPENVIDU_SERVER_SECRET = data.SecretString;
+                resolve(data.SecretString);
             } else {
                 let buff = new Buffer(data.SecretBinary, 'base64');
                 decodedBinarySecret = buff.toString('ascii');
+                resolve(decodedBinarySecret);
             }
         }
-        // Your code goes here.
+        reject("something else went wrong...");
     });
+  }
   });
-  return secret;
 }
+
+
 
 // See https://openvidu.io/docs/reference-docs/REST-API/#post-apisessions
 module.exports.createCallSession = async (sessionName) => {
+    let sec = await getSecret();
+    return new Promise((resolve, reject) => {
 
-    OPENVIDU_SERVER_SECRET=OPENVIDU_SERVER_SECRET == ""? await getSecret():OPENVIDU_SERVER_SECRET;
-    return  new Promise((resolve, reject) => {
+      console.log("openvidu: requesting session for sessionName: ", sessionName);
+
       var data = JSON.stringify({ customSessionId: sessionName });
       var post_options = {
           host: OPENVIDU_SERVER_URL,
@@ -83,25 +91,52 @@ module.exports.createCallSession = async (sessionName) => {
           }
       };
 
-
       var post_req = http.request(post_options, function(res) {
-        res.setEncoding('utf8');
-        res.on('data', function (data) {
-           console.log('Response: ' + data);
-           console.log(data);
-           resolve(data.id)
-          });
-          res.on('error', function (error) {
-             console.error('Error', error);
-             reject(error)
-            });
+      //  res.setEncoding('utf8');
+
+        // reject on bad status
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          console.error('openvidu: session creation failed: ', res.statusCode);
+          return reject(new Error('statusCode=' + res.statusCode));
+        }
+        // cumulate data
+        var body = [];
+        res.on('data', function(chunk) {
+          body.push(chunk);
+        });
+        // resolve on end
+        res.on('end', function() {
+            try {
+                data = JSON.parse(Buffer.concat(body).toString());
+            } catch(e) {
+                reject(e);
+            }
+            console.log("openvidu: created session ",data.id);
+            resolve(data.id);
         });
 
-        // post the data
-        post_req.write(data);
-        post_req.end();
-  });
+        res.on('error', function (error) {
+          console.error('openvidu: session creation failed: ', error);
+          reject(error);
+        });
+      });
+
+      // reject on request error
+      post_req.on('error', function(err) {
+          // This is not a "Second reject", just a different sort of failure
+          console.log("on error");
+          console.error('openvidu: session creation failed: ', error);
+          reject(err);
+      });
+      post_req.write(data);
+
+      // IMPORTANT
+      post_req.end();
+
+    });
+
 }
+
 
 module.exports.createTokens = async (sessionId, user1Uuid, user2Uuid) => {
   // See https://openvidu.io/docs/reference-docs/REST-API/#post-apitokens
@@ -123,16 +158,18 @@ module.exports.createTokens = async (sessionId, user1Uuid, user2Uuid) => {
   let loadToken = undefined;
   loadToken = () => {
     return new Promise ((resolve,reject) => {
+      console.log("openvidu: requesting tokens for : ", user1Uuid, user2Uuid);
 
       var post_req = http.request(post_options, function(res) {
 
         res.setEncoding('utf8');
         res.on('data', function (event) {
           const data = JSON.parse(event);
+          console.log("openvidu: token created : ", data.id);
           resolve(data.id);
           });
           res.on('error', function (error) {
-             console.error('Error', error);
+              console.error("openvidu: token creation failed : ", error);
              reject(error)
             });
         });

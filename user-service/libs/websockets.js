@@ -4,13 +4,13 @@ const uuid = require('uuid');
 const AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-dependencies
 
 
-module.exports.sendWebSocketMessage = async (connectionId, postData) =>{
-
+module.exports.sendWebSocketMessage = async (connectionId, postData,domainName) =>{
+  let returnData = {};
   let connectionData;
   console.log("sending response to connection " + connectionId);
   const apigwManagementApi = new AWS.ApiGatewayManagementApi({
     apiVersion: '2018-11-29',
-    endpoint: event.requestContext.domainName
+    endpoint: domainName
   });
 
   try {
