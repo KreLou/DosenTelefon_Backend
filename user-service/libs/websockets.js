@@ -26,6 +26,7 @@ module.exports.sendWebSocketMessage = async (connectionId, postData,domainName) 
     if (e.statusCode === 410) {
       returnData.message = `Found stale connection ${connectionId}`;
       returnData.error = e;
+      returnData.statusCode = e.statusCode;
       return returnData;
     } else {
       throw e;

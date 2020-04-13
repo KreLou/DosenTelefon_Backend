@@ -56,6 +56,7 @@ module.exports.create = (event, context, callback) => {
       topicsOK: data.topicsOK,
       topicsNotOK: data.topicsNotOK,
       active: false,
+      pending: false,
       createdAt: timestamp,
       updatedAt: timestamp,
     },

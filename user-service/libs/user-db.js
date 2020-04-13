@@ -50,10 +50,11 @@ module.exports.findMatch =  async (userUuid) => {
   //TODO: find not the same user
   const paramsForScan = {
     TableName: process.env.DYNAMODB_TABLE,
-    FilterExpression: "NOT contains (topicsNotOK, :topicsNotOK) AND #uuid <> :myself",
+    FilterExpression: "NOT contains (topicsNotOK, :topicsNotOK) AND #uuid <> :myself AND active = :true",
     ExpressionAttributeValues: {
       ':topicsNotOK': returnData.body.topicsOK,
-      ':myself':userUuid
+      ':myself':userUuid,
+      ':true':true
     },
     ExpressionAttributeNames:{
       '#uuid': 'uuid'
@@ -66,7 +67,7 @@ module.exports.findMatch =  async (userUuid) => {
     // fetch todo from the database
     dynamoDb.scan(paramsForScan, (error, data) => {
       if (error) {
-        console.log("Error", err);
+        console.log("Error", error);
         returnData.statusCode = error.statusCode || 501;
         returnData.message = error.message;
         returnData.error = error;
@@ -85,10 +86,8 @@ module.exports.findMatch =  async (userUuid) => {
           resolve(returnData);
           return;
         }
-        returnData.statusCode =404;
-        returnData.body ="No match found yet."
-        console.log(returnData.body);
-        resolve(returnData);
+        console.log("No match found yet.");
+        resolve(undefined);
         return;
       }
 
@@ -97,6 +96,11 @@ module.exports.findMatch =  async (userUuid) => {
   return await scanProm;
 }
 
+function hideSecureData(data){
+  data.token = "***";
+  data.newToken = "***";
+  return data;
+}
 
 module.exports.getUserDetails = async (userUuid) => {
   return new Promise(function(resolve, reject) {
@@ -117,8 +121,8 @@ module.exports.getUserDetails = async (userUuid) => {
       }
 
       if(result.Item){
-        result.Item.token = "***";
-        result.Item.newToken = "***";
+        result.Item = hideSecureData(result.Item);
+
         // create a response
 
         resolve(result.Item);
@@ -126,6 +130,94 @@ module.exports.getUserDetails = async (userUuid) => {
       }
       resolve(undefined);
       return;
+    });
+  });
+}
+
+module.exports.update = (userId, data) => {
+  return new Promise(function(resolve, reject) {
+    const timestamp = new Date().getTime();
+
+    const params = {
+      TableName: process.env.DYNAMODB_TABLE,
+      Key: {
+        uuid: userId,
+      },
+      ExpressionAttributeValues: {
+        ':username': data.username,
+        ':topicsOK': data.topicsOK,
+        ':topicsNotOK': data.topicsNotOK,
+        ':active': data.active,
+        ':pending': data.pending,
+        ':updatedAt': timestamp
+      },
+      UpdateExpression: 'SET ' +//
+                          'username = :username, ' +//
+                          'topicsOK = :topicsOK, ' +//
+                          'topicsNotOK = :topicsNotOK, ' +//
+                          'active = :active, ' +//
+                          'updatedAt = :updatedAt',
+      ReturnValues: 'ALL_NEW',
+    };
+
+    // update the todo in the database
+    dynamoDb.update(params, (error, result) => {
+      // handle potential errors
+      if (error) {
+        console.error("Error while updating user", error);
+        reject(error);
+        return;
+      }
+
+      // create a response
+      resolve({
+        statusCode: 200,
+        body: JSON.stringify(hideSecureData(result.Attributes)),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+        },
+      });
+    });
+  });
+}
+
+module.exports.activeState = (userId, state) => {
+  return new Promise(function(resolve, reject) {
+    const timestamp = new Date().getTime();
+    const params = {
+      TableName: process.env.DYNAMODB_TABLE,
+      Key: {
+        uuid: userId,
+      },
+      ExpressionAttributeValues: {
+        ':active': state,
+        ':updatedAt': timestamp
+      },
+      UpdateExpression: 'SET ' +//
+          'active = :active, ' +//
+          'updatedAt = :updatedAt',
+      ReturnValues: 'ALL_NEW',
+    };
+
+    // update the todo in the database
+    dynamoDb.update(params, (error, result) => {
+      // handle potential errors
+      if (error) {
+        console.error("Error while updating user", error);
+        reject(error);
+        return;
+      }
+
+      // create a response
+      resolve({
+        statusCode: 200,
+        body: JSON.stringify(hideSecureData(result.Attributes)),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+        },
+      });
     });
   });
 }

@@ -10,13 +10,15 @@ const websockets  =  require( '../libs/websockets.js');
 const utils  =  require( '../libs/utils.js');
 
 function wrapReturn(returnData){
-  return {
-    statusCode: returnData.statusCode,
-    headers: {   'Access-Control-Allow-Origin': '*',
+  let ret={
+    "statusCode": returnData.statusCode,
+    "headers": {   'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Credentials': true,
       'Content-Type': 'text/plain' },
-    body: returnData.message
-  }
+    "body": returnData.message
+  };
+  console.log("returning", ret);
+  return ret;
 }
 
 
@@ -102,12 +104,24 @@ module.exports.defaultHandler = async (event, context, callback) => {
           //TODO make code nicer https://github.com/aws-samples/simple-websockets-chat-app/blob/master/sendmessage/app.js
           let connectionDetails,connectionId;
 
-          connectionDetails = await connectionDB.getConnection(userUuid);
-          if(connectionDetails.statusCode != 200){
-            return wrapReturn(connectionDetails);
+          //load both connections
+          let connectionNewUser = await connectionDB.getConnection(userUuid);
+          console.log("after getConnection",connectionNewUser);
+          if(connectionNewUser.statusCode != 200){
+            console.log("could not find session for user connectionNewUser '"+userUuid+"': ", connectionNewUser);
+            return wrapReturn(connectionNewUser);
           }
-          connectionId = connectionDetails.body.connectId;
-          returnData = await websockets.sendWebSocketMessage(connectionId, {
+          let connectionIdNewUser = connectionNewUser.body.connectId;
+
+
+          let connectionExistingUser = await connectionDB.getConnection(match.body.uuid);
+          if(connectionExistingUser.statusCode != 200){
+            console.log("could not find session for user connectionExistingUser '"+match.body.uuid+"': ", connectionExistingUser);
+            return wrapReturn(connectionExistingUser);
+          }
+          let connectionIdExistingUser = connectionExistingUser.body.connectId;
+
+          returnData = await websockets.sendWebSocketMessage(connectionIdNewUser, {
             "version" : 1,
             "event" : "call_request",
             "body" : {
@@ -119,35 +133,42 @@ module.exports.defaultHandler = async (event, context, callback) => {
                 "userUuid":userUuid
               }
             },event.requestContext.domainName);
-            if(returnData.statusCode != 200){
-              return wrapReturn(callback, returnData);
+            console.log("returnData.statusCode",returnData.statusCode);
+          if(returnData.statusCode != 200){
+            console.log("sending message to websocket failed: ", returnData);
+            if (returnData.statusCode == 410){
+              //staled connection, removing
+              let returnData = await connectionDB.deleteConnection(connectionIdNewUser);
             }
+            return wrapReturn(callback, returnData);
+          }
 
-            connectionDetails = await connectionDB.getConnection(match.body.userUuid);
-            if(connectionDetails.statusCode != 200){
-              return wrapReturn(connectionDetails);
-            }
-            connectionId = connectionDetails.body.connectId;
 
-            returnData = await websockets.sendWebSocketMessage(connectionId, {
-              "version" : 1,
-              "event" : "call_request",
-              "body" : {
-                  "openvidu": {
-                    "sessionId":sessionId,
-                    "token":tokens[match.body.uuid]
-                  },
-                  "username": match.body.name,
-                  "userUuid": match.body.uuid
-                }
-            },event.requestContext.domainName);
-            if(returnData.statusCode != 200){
-              return wrapReturn(callback, returnData);
+
+          returnData = await websockets.sendWebSocketMessage(connectionIdExistingUser, {
+            "version" : 1,
+            "event" : "call_request",
+            "body" : {
+                "openvidu": {
+                  "sessionId":sessionId,
+                  "token":tokens[match.body.uuid]
+                },
+                "username": match.body.name,
+                "userUuid": match.body.uuid
+              }
+          },event.requestContext.domainName);
+          if(returnData.statusCode != 200){
+              if (returnData.statusCode == 410){
+              //staled connection, removing
+              let returnData = await connectionDB.deleteConnection(connectionIdExistingUser);
             }
-            else {
-              return wrapReturn({statusCode:200,message:"Match found, tokens send."});
-            }
-        }
+            console.log("sending message to websocket failed: ", returnData);
+            return wrapReturn(callback, returnData);
+          }
+
+        return wrapReturn({statusCode:200,message:"Match found, tokens send."});
+
+      }
 
         break;
       default:
@@ -162,6 +183,7 @@ module.exports.defaultHandler = async (event, context, callback) => {
       }
     }
     catch (errorMsg) {
+      console.error(errorMsg);
       return wrapReturn({
         statusCode: 500,
         headers: { 'Content-Type': 'text/plain' },
