@@ -1,0 +1,26 @@
+
+
+{
+  "version" : 1,
+  "event" : "link_user",
+  "auth": {
+    "uuid": "b98b6cf0-71f5-11ea-a492-29b39f737a5e",
+    "token": "999e8400-e29b-11d4-a716-29b39f737a5e"
+  },
+  "body" : {
+      "uuid": "b98b6cf0-71f5-11ea-a492-29b39f737a5e",
+      "username": "5555",
+      "email": "user1@example.com",
+      "token": "***",
+      "topicsOK": [
+          "topic2"
+      ],
+      "topicsNotOK": [
+          "topic1"
+      ],
+      "active": false,
+      "createdAt": 1585511078206,
+      "updatedAt": 1585511078206
+  }
+
+}

@@ -3,33 +3,48 @@
 const AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-dependencies
 
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
+const userDB  =  require( '../libs/user-db.js');
 
-module.exports.delete = (event, context, callback) => {
+module.exports.delete = async (event, context, callback) => {
   const params = {
     TableName: process.env.DYNAMODB_TABLE,
     Key: {
       uuid: event.pathParameters.userId,
     },
   };
+  try {
+    if(!event.headers.uuid || !event.headers.token || event.pathParameters.userId != event.headers.uuid  || !await userDB.auth(event.headers.uuid, event.headers.token)){
+      return {statusCode: 401,body: JSON.stringify({message:"Not authenticated."}), headers: {'Access-Control-Allow-Origin': '*','Access-Control-Allow-Credentials': true}};
 
-  // delete the todo from the database
-  dynamoDb.delete(params, (error) => {
-    // handle potential errors
-    if (error) {
-      console.error(error);
-      callback(null, {
-        statusCode: error.statusCode || 501,
-        headers: { 'Content-Type': 'text/plain' },
-        body: 'Couldn\'t remove the user.',
-      });
-      return;
     }
+  } catch (e) {
+    throw e;
+  }
+  console.log("Deleting user");
+  // delete the todo from the database
+  let deleteProm =  new Promise(function(resolve, reject) {
+    dynamoDb.delete(params, (error) => {
+      // handle potential errors
+      if (error) {
+        console.error(error);
+        reject({
+          statusCode: error.statusCode || 501,
+          headers: { 'Content-Type': 'text/plain' },
+          body: 'Couldn\'t remove the user.',
+        });
+      }
+      else {
+        console.log("deleted user ",event.pathParameters.userId)
+        // create a response
 
-    // create a response
-    const response = {
-      statusCode: 200,
-      body: JSON.stringify({}),
-    };
-    callback(null, response);
+        resolve({
+          statusCode: 200,
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({message:'User Deleted.'}),
+        });
+      }
+    });
   });
+
+  return deleteProm;
 };

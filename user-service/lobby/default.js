@@ -25,9 +25,9 @@ function wrapReturn(returnData){
 module.exports.defaultHandler = async (event, context, callback) => {
   try {
     const connectionId = event.requestContext.connectionId;
-    const data = JSON.parse(event.body);
-    let userUuid =data.body.uuid;
     let returnData ={};
+    const data = JSON.parse(event.body);
+
     //TODO: verify token
   /*
     var sessionIdTmp = await audioServer.createCallSession(utils.sha256(  new Date().getTime()));
@@ -66,7 +66,7 @@ module.exports.defaultHandler = async (event, context, callback) => {
 
     console.log("Default handler, got "+connectionId);
 
-    if (typeof data.version !== 'number' || data.version !== 1) {
+    if (typeof data.version !== 'number' || data.version !== 1 || !data.auth || !data.auth.uuid || !data.auth.token) {
         console.error('incorrect message');
         callback(null, {
           statusCode: 400,
@@ -75,10 +75,37 @@ module.exports.defaultHandler = async (event, context, callback) => {
         });
         return;
     }
-    console.log("event:" +data.event);
+
+    try {
+      if(!data.auth.uuid || !data.auth.token || !await userDB.auth(data.auth.uuid, data.auth.token)){
+        console.error("authentication failed.")
+
+        await websockets.sendWebSocketMessage(connectionId, {
+          "version" : 1,
+          "event" : "authentication_failed",
+          "body" : {
+              "message":"Authentication failed!"
+            }
+        },event.requestContext.domainName);
+        return {statusCode: 401,body: JSON.stringify({message:"Not authenticated."}), headers: {'Access-Control-Allow-Origin': '*','Access-Control-Allow-Credentials': true,}};
+
+      }
+    } catch (e) {
+      throw e;
+    }
+
+
+
+  console.log("Event: " +data.event);
+
     switch (data.event){
       case "link_user":
 
+        let userUuid =data.body.uuid;
+        if(userUuid != data.auth.uuid){
+          callback(null, {statusCode: 401,body: JSON.stringify({message:"Not authenticated."}), headers: {'Access-Control-Allow-Origin': '*','Access-Control-Allow-Credentials': true,}});
+          return;
+        }
         console.log("link_user in database");
         returnData = await connectionDB.linkUserToConnection(connectionId,userUuid);
         console.log(returnData);
@@ -144,7 +171,6 @@ module.exports.defaultHandler = async (event, context, callback) => {
           }
 
 
-
           returnData = await websockets.sendWebSocketMessage(connectionIdExistingUser, {
             "version" : 1,
             "event" : "call_request",
@@ -166,10 +192,40 @@ module.exports.defaultHandler = async (event, context, callback) => {
             return wrapReturn(callback, returnData);
           }
 
+          //both user informed, mark as pending
+
+          await userDB.pendingState(userUuid, true);
+          await userDB.pendingState(match.body.uuid, true);
+
+
         return wrapReturn({statusCode:200,message:"Match found, tokens send."});
 
       }
 
+        break;
+      case "call_accepted":
+          let connection = {};
+          try {
+            await connectionDB.getConnectionByConnectionId(connectionId
+            ).then((con)=>{
+              connection = con;
+              return userDB.activeState(connection.user,false);
+            }).then(()=>{
+             return userDB.pendingState(connection.user,false)
+            });
+          } catch (e) {
+            return wrapReturn({
+              statusCode: 400,
+              headers: { 'Content-Type': 'text/plain' },
+              body: `Error removing user from lobby ${e.message}`
+            });
+          }
+
+          return wrapReturn({
+            statusCode: 200,
+            headers: { 'Content-Type': 'text/plain' },
+            body: "User removed from lobby."
+          });
         break;
       default:
         var errorMsg = 'Unkown event '+data.event;

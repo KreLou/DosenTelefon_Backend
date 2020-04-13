@@ -3,12 +3,13 @@
 const uuid = require('uuid');
 const AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-dependencies
 var http = require('https');
+const utils  =  require( '../libs/utils.js');
 
 
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
 module.exports.findMatch =  async (userUuid) => {
-  let returnData={};
+  let returnData={},data;
   const paramsForGet = {
     TableName: process.env.DYNAMODB_TABLE,
     Key: {
@@ -45,55 +46,36 @@ module.exports.findMatch =  async (userUuid) => {
   }
 
   //find users which do not have things in interessted where the other have it in notInteressted.
-
-  //TODO: And user is "active" => in lobby
-  //TODO: find not the same user
   const paramsForScan = {
     TableName: process.env.DYNAMODB_TABLE,
-    FilterExpression: "NOT contains (topicsNotOK, :topicsNotOK) AND #uuid <> :myself AND active = :true",
+    FilterExpression: "NOT contains (topicsNotOK, :topicsNotOK) AND #uuid <> :myself AND active = :true AND pending = :false",
     ExpressionAttributeValues: {
       ':topicsNotOK': returnData.body.topicsOK,
       ':myself':userUuid,
-      ':true':true
+      ':true':true,
+      ':false':false
+
     },
     ExpressionAttributeNames:{
       '#uuid': 'uuid'
-    },
-    Limit: 1
+    }
   };
 
   console.log("searching match");
-  let scanProm = new Promise(function(resolve, reject) {
-    // fetch todo from the database
-    dynamoDb.scan(paramsForScan, (error, data) => {
-      if (error) {
-        console.log("Error", error);
-        returnData.statusCode = error.statusCode || 501;
-        returnData.message = error.message;
-        returnData.error = error;
-        reject(error);
-        return;
-      } else {
-        //console.log("Success", data.Items);
-        if(data.Items.length != 0){
-          //just take the first one
-          let item = data.Items[0];
-          returnData.statusCode =200;
-          item.token = "***";
-          item.newToken = "***";
-          returnData.body = item;
-          console.log("found match: ", returnData);
-          resolve(returnData);
-          return;
-        }
-        console.log("No match found yet.");
-        resolve(undefined);
-        return;
-      }
+  try {
+    data = await utils.scanWithLimit(paramsForScan,1);
+  } catch (e) {
+    throw e;
+  }
 
-    });
-  });
-  return await scanProm;
+  if(data && data.length != 0){
+    returnData.statusCode =200;
+    returnData.body = hideSecureData(data[0]);
+    return returnData
+  }
+
+  console.log("No match found yet.");
+  return;
 }
 
 function hideSecureData(data){
@@ -134,29 +116,100 @@ module.exports.getUserDetails = async (userUuid) => {
   });
 }
 
+
+module.exports.auth = (uuid, token) => {
+  return new Promise(function(resolve, reject) {
+        const params = {
+          TableName: process.env.DYNAMODB_TABLE,
+          Key: {
+            uuid: uuid,
+          },
+        };
+
+        // fetch todo from the database
+        dynamoDb.get(params, (error, result) => {
+          // handle potential errors
+          if (error) {
+            throw new Error(error);
+          }
+
+          if(result && result.Item && result.Item.token && result.Item.token == token){
+            resolve(true);
+            return true;
+          }
+          else {
+            resolve(false);
+            return false;
+          }
+        });
+      });
+}
+
+
 module.exports.update = (userId, data) => {
+
+  return module.exports.getUserDetails(userId).then((userDetails)=>{
+   return new Promise(function(resolve, reject) {
+     const timestamp = new Date().getTime();
+     console.log(data);
+     const params = {
+       TableName: process.env.DYNAMODB_TABLE,
+       Key: {
+         uuid: userId,
+       },
+       ExpressionAttributeValues: {
+         ':username': data.username ? data.username : userDetails.username,
+         ':topicsOK': data.topicsOK ? data.topicsOK : userDetails.topicsOK,
+         ':topicsNotOK': data.topicsNotOK ? data.topicsNotOK : userDetails.topicsNotOK,
+         ':updatedAt': timestamp
+       },
+       UpdateExpression: 'SET ' +//
+                           'username = :username, ' +//
+                           'topicsOK = :topicsOK, ' +//
+                           'topicsNotOK = :topicsNotOK, ' +//
+                           'updatedAt = :updatedAt',
+       ReturnValues: 'ALL_NEW',
+     };
+
+     // update the todo in the database
+     dynamoDb.update(params, (error, result) => {
+       // handle potential errors
+       if (error) {
+         console.error("Error while updating user", error);
+         reject(error);
+         return;
+       }
+
+       // create a response
+       resolve({
+         statusCode: 200,
+         body: JSON.stringify(hideSecureData(result.Attributes)),
+         headers: {
+           'Access-Control-Allow-Origin': '*',
+           'Access-Control-Allow-Credentials': true,
+         },
+       });
+     });
+   });
+   });
+
+}
+
+module.exports.activeState = (userId, state) => {
   return new Promise(function(resolve, reject) {
     const timestamp = new Date().getTime();
-
     const params = {
       TableName: process.env.DYNAMODB_TABLE,
       Key: {
         uuid: userId,
       },
       ExpressionAttributeValues: {
-        ':username': data.username,
-        ':topicsOK': data.topicsOK,
-        ':topicsNotOK': data.topicsNotOK,
-        ':active': data.active,
-        ':pending': data.pending,
+        ':active': state,
         ':updatedAt': timestamp
       },
       UpdateExpression: 'SET ' +//
-                          'username = :username, ' +//
-                          'topicsOK = :topicsOK, ' +//
-                          'topicsNotOK = :topicsNotOK, ' +//
-                          'active = :active, ' +//
-                          'updatedAt = :updatedAt',
+          'active = :active, ' +//
+          'updatedAt = :updatedAt',
       ReturnValues: 'ALL_NEW',
     };
 
@@ -182,7 +235,7 @@ module.exports.update = (userId, data) => {
   });
 }
 
-module.exports.activeState = (userId, state) => {
+module.exports.pendingState = (userId, state) => {
   return new Promise(function(resolve, reject) {
     const timestamp = new Date().getTime();
     const params = {
@@ -191,11 +244,11 @@ module.exports.activeState = (userId, state) => {
         uuid: userId,
       },
       ExpressionAttributeValues: {
-        ':active': state,
+        ':pending': state,
         ':updatedAt': timestamp
       },
       UpdateExpression: 'SET ' +//
-          'active = :active, ' +//
+          'pending = :pending, ' +//
           'updatedAt = :updatedAt',
       ReturnValues: 'ALL_NEW',
     };

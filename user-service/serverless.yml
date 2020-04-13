@@ -90,6 +90,7 @@ functions:
       - websocket:
           route: $default
           cors: true
+
   auth:
     handler: lobby/auth.auth
 

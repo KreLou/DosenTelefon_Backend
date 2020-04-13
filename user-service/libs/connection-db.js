@@ -6,6 +6,8 @@ const AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-depe
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const connectionDB  =  require( '../libs/connection-db.js');
 const userDB  =  require( '../libs/user-db.js');
+const utils  =  require( '../libs/utils.js');
+
 
 module.exports.linkUserToConnection = (connectionId, userUuid) => {
   let updateProm = new Promise((resolve,reject) => {
@@ -55,7 +57,9 @@ module.exports.linkUserToConnection = (connectionId, userUuid) => {
 
 
   return updateProm.then(()=>{
-    return userDB.activeState(userUuid,true);
+    return userDB.activeState(userUuid,true).then(()=>{
+      return userDB.pendingState(userUuid,false);
+    });
   });
 }
 
@@ -74,29 +78,16 @@ module.exports.getConnection = async (userUuid) => {
       },
       ExpressionAttributeValues: {
         ':user': userUuid
-      },
-      Limit: 1
+      }
     };
     let data;
-    let scanCompleted = false;
     // fetch todo from the database
 
-    while (!scanCompleted){
+    data = await utils.scanWithLimit(paramsForScan,1);
 
-      data = await scanForConnection(paramsForScan);
-
-      console.log("data after scan: ", data);
-      if(data.Items && data.Items.length == 0 && data.LastEvaluatedKey != undefined){
-        paramsForScan.ExclusiveStartKey = data.LastEvaluatedKey;
-      }
-      else {
-        scanCompleted = true;
-      }
-    }
-    console.log("scanCompleted",scanCompleted);
-    if(data.Items && data.Items.length != 0){
+    if(data && data.length != 0){
       //just take the first one
-      let item = data.Items[0];
+      let item = data[0];
       returnData.statusCode =200;
       returnData.body = item;
     }
@@ -109,21 +100,7 @@ module.exports.getConnection = async (userUuid) => {
     return returnData;
 }
 
-function scanForConnection(paramsForScan){
-  return new Promise(function(resolve, reject) {
-    dynamoDb.scan(paramsForScan, (error, data) => {
-      if (error) {
-        console.error("connection-db: loading failed: ",error);
-        reject(error);
-      } else {
-        console.log("connection-db: loaded: ", data);
-        resolve(data);
-      }
 
-    });
-  });
-
-}
 
 module.exports.getConnectionByConnectionId = (connectId) => {
   return new Promise(function(resolve, reject) {
@@ -184,6 +161,8 @@ module.exports.deleteConnection = async (connectId) => {
   });
 
   return deleteProm.then(()=>{
-    return userDB.activeState(connection.user,false);
+    return userDB.activeState(connection.user,false).then(()=>{
+      return userDB.pendingState(connection.user,false);
+    });
   });
 }

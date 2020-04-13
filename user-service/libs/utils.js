@@ -1,5 +1,64 @@
 'use strict';
 
+const AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-dependencies
+const dynamoDb = new AWS.DynamoDB.DocumentClient();
+
+
+module.exports.scanWithLimit = async (paramsForScan,limit) => {
+	//update limit, let's say window
+	paramsForScan.Limit=limit;
+
+	let data, finalData=[];
+	let scanCompleted = false;
+	console.log("Starting scanWithLimit with limit, paramsForScan: ",limit,paramsForScan)
+	while (!scanCompleted){
+		try {
+			data = await nextScan(paramsForScan);
+		} catch (e) {
+			throw e;
+		}
+
+		//nothing found, continue
+		if(data.Items && data.Items.length == 0 && data.LastEvaluatedKey != undefined){
+			paramsForScan.ExclusiveStartKey = data.LastEvaluatedKey;
+		}
+		//found something, collect, check if enough, otherwise continue
+		else if (data.Items && data.Items.length != 0 && data.LastEvaluatedKey != undefined) {
+			finalData = finalData.concat(data.Items);
+			//found enough
+			if(finalData.length >= limit){
+				finalData = finalData.slice(0,limit);
+				scanCompleted = true;
+			}
+			//continue
+			else {
+				paramsForScan.ExclusiveStartKey = data.LastEvaluatedKey;
+			}
+		}
+		else {
+			scanCompleted = true;
+		}
+	}
+	console.log(`Found ${finalData.length} items.`,finalData);
+
+	return finalData;
+};
+
+function nextScan(paramsForScan){
+  return new Promise(function(resolve, reject) {
+    dynamoDb.scan(paramsForScan, (error, data) => {
+      if (error) {
+        console.error(`${paramsForScan.TableName }: loading failed: `,error);
+				throw new Error(`${paramsForScan.TableName }: loading failed: ${error}`,);
+      } else {
+				console.log(`${paramsForScan.TableName }: loaded: `,data);
+        resolve(data);
+      }
+
+    });
+  });
+}
+
 module.exports.sha256 =  (ascii) => {
 	function rightRotate(value, amount) {
 		return (value>>>amount) | (value<<(32 - amount));

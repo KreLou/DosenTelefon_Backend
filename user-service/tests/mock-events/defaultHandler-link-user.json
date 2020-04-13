@@ -1,0 +1,33 @@
+{
+    "requestContext": {
+        "routeKey": "$default",
+        "messageId": "1234=",
+        "eventType": "MESSAGE",
+        "extendedRequestId": "12345=",
+        "requestTime": "28/Mar/2020:18:24:25 +0000",
+        "messageDirection": "IN",
+        "stage": "dev",
+        "connectedAt": 1585419864521,
+        "requestTimeEpoch": 1585419865520,
+        "identity": {
+            "cognitoIdentityPoolId": null,
+            "cognitoIdentityId": null,
+            "principalOrgId": null,
+            "cognitoAuthenticationType": null,
+            "userArn": null,
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36",
+            "accountId": null,
+            "caller": null,
+            "sourceIp": "102.201.214.205",
+            "accessKey": null,
+            "cognitoAuthenticationProvider": null,
+            "user": null
+        },
+        "requestId": "123456=",
+        "domainName": "websocket.dev.dosen-telefon.de",
+        "connectionId": "2345678=",
+        "apiId": "234567"
+    },
+    "body": "{\n  \"version\" : 1,\n  \"event\" : \"link_user\",\n  \"auth\": {\n    \"uuid\": \"b98b6cf0-71f5-11ea-a492-29b39f737a5e\",\n    \"token\": \"999e8400-e29b-11d4-a716-29b39f737a5e\"\n  },\n  \"body\" : {\n    \"uuid\": \"b98b6cf0-71f5-11ea-a492-29b39f737a5e\",\n    \"username\": \"22222\",\n    \"email\": \"user1@example.com\",\n    \"token\": \"***\",\n    \"topicsOK\": [\n        \"topic2\"\n    ],\n    \"topicsNotOK\": [\n        \"topic1\"\n    ],\n    \"active\": false,\n    \"createdAt\": 1585328886372,\n    \"updatedAt\": 1585328886372\n}\n}",
+    "isBase64Encoded": false
+}

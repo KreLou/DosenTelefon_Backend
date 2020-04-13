@@ -5,21 +5,17 @@ const AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-depe
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const userDB  =  require( '../libs/user-db.js');
 
-module.exports.update = (event, context, callback) => {
+module.exports.update = async (event, context, callback) => {
   const data = JSON.parse(event.body);
 
-//TODO: verify data
-  // validation
-/*  if (typeof data.uuid !== 'string') {
-    console.error('Validation Failed');
-    callback(null, {
-      statusCode: 400,
-      headers: { 'Content-Type': 'text/plain' },
-      body: 'Couldn\'t update the user.',
-    });
-    return;
-  }*/
-//TODO: auth
+  try {
+    if(!event.headers.uuid || !event.headers.token || event.pathParameters.userId != event.headers.uuid  || data.uuid != event.headers.uuid || !await userDB.auth(event.headers.uuid, event.headers.token)){
+      callback(null, {statusCode: 401,body: JSON.stringify({message:"Not authenticated."}), headers: {'Access-Control-Allow-Origin': '*','Access-Control-Allow-Credentials': true,}});
+      return;
+    }
+  } catch (e) {
+    throw e;
+  }
   return userDB.update(event.pathParameters.userId,data);
 
 };

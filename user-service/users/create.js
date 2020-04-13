@@ -8,7 +8,24 @@ const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
 module.exports.create = (event, context, callback) => {
   const timestamp = new Date().getTime();
-  const data = JSON.parse(event.body);
+  let data;
+  try {
+    data = JSON.parse(event.body);
+  } catch (e) {
+    const response = {
+      statusCode: 500,
+      body: JSON.stringify(e.message),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+      },
+    };
+    callback(null, response);
+    return;
+  } finally {
+
+  }
+
   //TODO: verify data
 
 /*if (typeof data.uuid !== 'string') {
