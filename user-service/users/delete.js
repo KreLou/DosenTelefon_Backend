@@ -12,8 +12,10 @@ module.exports.delete = async (event, context, callback) => {
       uuid: event.pathParameters.userId,
     },
   };
+  let authenticatedUser = event.requestContext.authorizer.principalId;
+
   try {
-    if(!event.headers.uuid || !event.headers.token || event.pathParameters.userId != event.headers.uuid  || !await userDB.auth(event.headers.uuid, event.headers.token)){
+    if(!authenticatedUser || event.pathParameters.userId != authenticatedUser){
       return {statusCode: 401,body: JSON.stringify({message:"Not authenticated."}), headers: {'Access-Control-Allow-Origin': '*','Access-Control-Allow-Credentials': true}};
 
     }

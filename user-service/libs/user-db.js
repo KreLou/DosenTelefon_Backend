@@ -8,6 +8,8 @@ const utils  =  require( '../libs/utils.js');
 
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
+
+
 module.exports.findMatch =  async (userUuid) => {
   let returnData={},data;
   const paramsForGet = {
@@ -132,12 +134,16 @@ module.exports.auth = (uuid, token) => {
           if (error) {
             throw new Error(error);
           }
-
+          console.log(`Found user ${uuid} in database.`);
           if(result && result.Item && result.Item.token && result.Item.token == token){
+            console.log(`token matched.`);
+
             resolve(true);
             return true;
           }
           else {
+            console.log(`token did not match. ${result.Item.token} == ${token}`);
+
             resolve(false);
             return false;
           }

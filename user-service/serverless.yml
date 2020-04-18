@@ -53,6 +53,7 @@ functions:
           path: users/{userId}
           method: get
           cors: true
+          authorizer: authorizerFunc
 
   update:
     handler: users/update.update
@@ -61,6 +62,8 @@ functions:
           path: users/{userId}
           method: put
           cors: true
+          authorizer: authorizerFunc
+
 
   delete:
     handler: users/delete.delete
@@ -69,6 +72,8 @@ functions:
           path: users/{userId}
           method: delete
           cors: true
+          authorizer: authorizerFunc
+
 
   connectHandler:
     handler: lobby/connect.connectHandler
@@ -77,6 +82,8 @@ functions:
           route: $connect
           cors: true
         #  authorizer: auth # references the auth function below
+        #  authorizer: authorizerFunc not possible in chrome
+
 
   disconnectHandler:
     handler: lobby/disconnect.disconnectHandler
@@ -91,9 +98,8 @@ functions:
           route: $default
           cors: true
 
-  auth:
-    handler: lobby/auth.auth
-
+  authorizerFunc:
+      handler: auth/auth.auth
 
 resources:
   Resources:

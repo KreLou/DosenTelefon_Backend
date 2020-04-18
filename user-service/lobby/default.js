@@ -102,12 +102,13 @@ module.exports.defaultHandler = async (event, context, callback) => {
       case "link_user":
 
         let userUuid =data.body.uuid;
+        let peerId =data.body.peerId;
         if(userUuid != data.auth.uuid){
           callback(null, {statusCode: 401,body: JSON.stringify({message:"Not authenticated."}), headers: {'Access-Control-Allow-Origin': '*','Access-Control-Allow-Credentials': true,}});
           return;
         }
         console.log("link_user in database");
-        returnData = await connectionDB.linkUserToConnection(connectionId,userUuid);
+        returnData = await connectionDB.linkUserToConnection(connectionId,userUuid,peerId);
         console.log(returnData);
         if(returnData.statusCode != 200){
           return wrapReturn(returnData)
@@ -156,6 +157,7 @@ module.exports.defaultHandler = async (event, context, callback) => {
                   "sessionId":sessionId,
                   "token":tokens[userUuid]
                 },
+                "peerId":connectionExistingUser.body.peerId,
                 "username": userDB.getUserDetails(userUuid).name,
                 "userUuid":userUuid
               }
@@ -179,6 +181,7 @@ module.exports.defaultHandler = async (event, context, callback) => {
                   "sessionId":sessionId,
                   "token":tokens[match.body.uuid]
                 },
+                "peerId":connectionNewUser.body.peerId,
                 "username": match.body.name,
                 "userUuid": match.body.uuid
               }

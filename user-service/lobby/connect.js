@@ -22,6 +22,7 @@ module.exports.connectHandler = (event, context, callback) => {
       connectId:connectionId,
       createdAt: timestamp,
       updatedAt: timestamp,
+      peerId:"connected"
     },
   };
 

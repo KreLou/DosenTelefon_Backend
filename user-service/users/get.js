@@ -8,9 +8,11 @@ const userDB  =  require( '../libs/user-db.js');
 module.exports.get = async (event, context, callback) => {
     console.log(event);
     let userUuid = event.pathParameters.userId;
+    let authenticatedUser = event.requestContext.authorizer.principalId;
+
     //auth
     try {
-      if(!event.headers.uuid || !event.headers.token || event.pathParameters.userId != event.headers.uuid  || !await userDB.auth(event.headers.uuid, event.headers.token)){
+      if(!authenticatedUser || !event.pathParameters.userId  || event.pathParameters.userId != authenticatedUser){
         callback(null, {statusCode: 401,body: JSON.stringify({message:"Not authenticated."}), headers: {'Access-Control-Allow-Origin': '*','Access-Control-Allow-Credentials': true,}});
         return;
       }
@@ -34,7 +36,7 @@ module.exports.get = async (event, context, callback) => {
     else{
         // create a response
         const response = {
-          statusCode: 404,
+          statusCode: 200,
           body: JSON.stringify(result),
           headers: {
             'Access-Control-Allow-Origin': '*',

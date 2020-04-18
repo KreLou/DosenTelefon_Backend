@@ -9,25 +9,30 @@ const userDB  =  require( '../libs/user-db.js');
 const utils  =  require( '../libs/utils.js');
 
 
-module.exports.linkUserToConnection = (connectionId, userUuid) => {
+module.exports.linkUserToConnection = (connectionId, userUuid, peerId) => {
   let updateProm = new Promise((resolve,reject) => {
     console.log("linking "+connectionId+" with user "+userUuid);
     const timestamp = new Date().getTime();
     var returnData = {};
+    peerId = peerId?peerId:"no-peerId";
+
     const params = {
       TableName: process.env.CONNECT_TABLE,
       Key: {
         connectId: connectionId,
       },
       ExpressionAttributeNames: {
-        '#user': 'user'
+        '#user': 'user',
+        '#peerId': 'peerId'
       },
       ExpressionAttributeValues: {
         ':user': userUuid,
-        ':updatedAt': timestamp
+        ':updatedAt': timestamp,
+        ':peerId': peerId
       },
       UpdateExpression: 'SET ' +//
                           '#user = :user, ' +//
+                          '#peerId = :peerId, ' +//
                           'updatedAt = :updatedAt',
       ReturnValues: 'ALL_NEW',
     };
@@ -99,8 +104,6 @@ module.exports.getConnection = async (userUuid) => {
     }
     return returnData;
 }
-
-
 
 module.exports.getConnectionByConnectionId = (connectId) => {
   return new Promise(function(resolve, reject) {
