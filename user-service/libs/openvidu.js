@@ -75,7 +75,7 @@ function getSecret () {
 module.exports.createCallSession = async (sessionName) => {
     let sec = await getSecret();
     return new Promise((resolve, reject) => {
-
+      return resolve("server-disabled");
       console.log("openvidu: requesting session for sessionName: ", sessionName);
 
       var data = JSON.stringify({ customSessionId: sessionName });
@@ -141,6 +141,10 @@ module.exports.createCallSession = async (sessionName) => {
 module.exports.createTokens = async (sessionId, user1Uuid, user2Uuid) => {
   // See https://openvidu.io/docs/reference-docs/REST-API/#post-apitokens
   OPENVIDU_SERVER_SECRET=OPENVIDU_SERVER_SECRET == ""? await getSecret():OPENVIDU_SERVER_SECRET;
+  let tokensFake = {};
+  tokensFake[user1Uuid] = "server-disabled";
+  tokensFake[user2Uuid] = "server-disabled";
+  return tokensFake;
 
   var data = JSON.stringify({ session: sessionId });
   var post_options = {

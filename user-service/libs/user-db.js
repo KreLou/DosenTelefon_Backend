@@ -134,16 +134,20 @@ module.exports.auth = (uuid, token) => {
           if (error) {
             throw new Error(error);
           }
-          console.log(`Found user ${uuid} in database.`);
           if(result && result.Item && result.Item.token && result.Item.token == token){
+            console.log(`Found user ${uuid} in database.`);
             console.log(`token matched.`);
 
             resolve(true);
             return true;
           }
           else {
-            console.log(`token did not match. ${result.Item.token} == ${token}`);
-
+            if(result.Item){
+              console.log(`token did not match. ${result.Item.token} == ${token}`);
+            }
+            else {
+              console.log(`Response empty, user ${uuid} is not in the database.`);
+            }
             resolve(false);
             return false;
           }

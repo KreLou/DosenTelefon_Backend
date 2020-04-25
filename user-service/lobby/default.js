@@ -104,6 +104,8 @@ module.exports.defaultHandler = async (event, context, callback) => {
         let userUuid =data.body.uuid;
         let peerId =data.body.peerId;
         if(userUuid != data.auth.uuid){
+          console.log(`Not authenticated ${userUuid}  != ${data.auth.uuid}`);
+
           callback(null, {statusCode: 401,body: JSON.stringify({message:"Not authenticated."}), headers: {'Access-Control-Allow-Origin': '*','Access-Control-Allow-Credentials': true,}});
           return;
         }
