@@ -5,7 +5,6 @@ const AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-depe
 
 const connectionDB  =  require( '../libs/connection-db.js');
 const userDB  =  require( '../libs/user-db.js');
-const audioServer  =  require( '../libs/openvidu.js');
 const websockets  =  require( '../libs/websockets.js');
 const utils  =  require( '../libs/utils.js');
 
@@ -27,42 +26,6 @@ module.exports.defaultHandler = async (event, context, callback) => {
     const connectionId = event.requestContext.connectionId;
     let returnData ={};
     const data = JSON.parse(event.body);
-
-    //TODO: verify token
-  /*
-    var sessionIdTmp = await audioServer.createCallSession(utils.sha256(  new Date().getTime()));
-    //create tokens for both users
-    var tokens = await audioServer.createTokens(sessionIdTmp, "user1", "user2");
-  await websockets.sendWebSocketMessage(connectionId, {
-    "version" : 1,
-    "event" : "call_request",
-    "body" : {
-        "openvidu": {
-          "sessionId":sessionIdTmp,
-          "token":tokens["user1"]
-        },
-        "username": "user2",
-        "userUuid":"user2"
-      }
-    },event.requestContext.domainName);
-    await websockets.sendWebSocketMessage(connectionId, {
-      "version" : 1,
-      "event" : "call_request",
-      "body" : {
-          "openvidu": {
-            "sessionId":sessionIdTmp,
-            "token":tokens["user2"]
-          },
-          "username": "user2",
-          "userUuid":"user2"
-        }
-      },event.requestContext.domainName);
-      callback(null, {
-        statusCode: 200,
-        headers: { 'Content-Type': 'text/plain' },
-        body: 'Send Demo Tokens callback',
-      });
-  return ;*/
 
     console.log("Default handler, got "+connectionId);
 
@@ -125,11 +88,7 @@ module.exports.defaultHandler = async (event, context, callback) => {
         }
         else {
           console.log("found matching user '"+match.body.uuid+"'")
-          //create session
-          var sessionId = await audioServer.createCallSession(utils.sha256(match.body.uuid+userUuid+new Date().getTime()));
 
-          //create tokens for both users
-          var tokens = await audioServer.createTokens(sessionId, match.body.uuid, userUuid);
           //send both users the token
           //TODO make code nicer https://github.com/aws-samples/simple-websockets-chat-app/blob/master/sendmessage/app.js
           let connectionDetails,connectionId;
@@ -151,17 +110,17 @@ module.exports.defaultHandler = async (event, context, callback) => {
           }
           let connectionIdExistingUser = connectionExistingUser.body.connectId;
 
+          let existingUserDetails = await userDB.getUserDetails(match.body.uuid);
+          let newUserDetails = await userDB.getUserDetails(userUuid);
+
+
           returnData = await websockets.sendWebSocketMessage(connectionIdNewUser, {
             "version" : 1,
             "event" : "call_request",
             "body" : {
-                "openvidu": {
-                  "sessionId":sessionId,
-                  "token":tokens[userUuid]
-                },
                 "peerId":connectionExistingUser.body.peerId,
-                "username": userDB.getUserDetails(userUuid).name,
-                "userUuid":userUuid
+                "username":   existingUserDetails.username,
+                "caller": true
               }
             },event.requestContext.domainName);
             console.log("returnData.statusCode",returnData.statusCode);
@@ -179,13 +138,9 @@ module.exports.defaultHandler = async (event, context, callback) => {
             "version" : 1,
             "event" : "call_request",
             "body" : {
-                "openvidu": {
-                  "sessionId":sessionId,
-                  "token":tokens[match.body.uuid]
-                },
                 "peerId":connectionNewUser.body.peerId,
-                "username": match.body.name,
-                "userUuid": match.body.uuid
+                "username": newUserDetails.username,
+                "caller": false
               }
           },event.requestContext.domainName);
           if(returnData.statusCode != 200){

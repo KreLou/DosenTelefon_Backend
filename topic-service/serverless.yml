@@ -1,0 +1,17 @@
+
+service: topic-service
+app: dosen-telefon
+org: dosentelefonde
+
+provider:
+  name: aws
+  runtime: python3.8
+  region: eu-west-1
+
+functions:
+  topics:
+    handler: handler.topics
+    events:
+      - http:
+          path: /
+          method: get

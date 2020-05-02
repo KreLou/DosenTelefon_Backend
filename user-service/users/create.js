@@ -3,10 +3,11 @@
 const uuid = require('uuid');
 const AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-dependencies
 var ses = new AWS.SES({region: 'eu-west-1'});
+AWS.config.update({region: 'eu-west-1'});
 
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-module.exports.create = (event, context, callback) => {
+module.exports.create = async (event, context, callback) => {
   const timestamp = new Date().getTime();
   let data;
   try {
@@ -57,11 +58,6 @@ module.exports.create = (event, context, callback) => {
       return;
     }*/
   //  result.Item.
-
-
-
-
-
   const params = {
     TableName: process.env.DYNAMODB_TABLE,
     Item: {
@@ -79,74 +75,96 @@ module.exports.create = (event, context, callback) => {
     },
   };
 
-  // write the todo to the database
-  dynamoDb.put(params, (error) => {
-    // handle potential errors
-    if (error) {
-      console.error(error);
-      callback(null, {
-        statusCode: error.statusCode || 501,
-        headers: { 'Content-Type': 'text/plain' },
-        body: 'Couldn\'t create the user. \n'+error.message
-        +'\n fnVersion: '+context.functionVersion
-        +'\n functionName: '+context.functionName
-        ,
-      });
-      return;
-    }
+  let mailParams ={};
 
-    var username = params.Item.username == "" ? "" : " " + params.Item.username;
-
-     var mailParams = {
-        Destination: {
-            ToAddresses: [params.Item.email]
-            //ToAddresses: ["success@simulator.amazonses.com"]
-        },
-        Message: {
-            Body: {
-                Text: { Data:
-                "Hallo"+username+"!\n"+
-                "Du hast dich mit dieser Email beim DosenTelefon registriert.\n"+
-                "Bitte nutze diesen Link https://dosen-telefon.de/register/"+params.Item.uuid+"/"+params.Item.token+", um dich anzumelden. Das geht jederzeit und von jedem Gerät aus. Dann kann der Dosen-Spaß auch schon direkt beginnen!\n"+
-                "Zu deiner eigenen Sicherheit: gib diesen Link bitte nicht an andere weiter, sie könnten sich dann unter deinem Namen beim DosenTelefon anmelden.\n"+
-                "Du hast dich nicht beim DosenTelefon registriert? Bitte ignoriere diese Email oder kontaktiere unseren Support https://dosen-telefon.de/abuse\n"+
-                "Viel Spaß beim Verdrahten!\n"+
-                "Die Dose\n"
-                }
-
-            },
-
-            Subject: {
-              Data:
-              "Registrierung bei Dosen-Telefon.de"
-            },
-        },
-        Source: "registrierung@dosen-telefon.de"
-    };
-
-
-     ses.sendEmail(mailParams, function (err, data) {
-        callback(null, {err: err, data: data});
-        if (err) {
-            console.log(err);
-            context.fail(err);
-        } else {
-            context.succeed(event);
-        }
+  //database
+  return new Promise(function(resolve, reject) {
+    dynamoDb.put(params, (error) => {
+      // handle potential errors
+      if (error) {
+        return reject(error);
+      }
+      return resolve(params.Item);
     });
+  })
+  //sns
+  .then((item)=> {
+      return new Promise(function(resolve, reject) {
+        let snsMessage = `https://dosen-telefon.de/register/${item.uuid}/${item.token}`;
+        var params = {
+           Message: snsMessage,
+           TopicArn: 'arn:aws:sns:eu-west-1:133355712185:dosen-telefon-registrations',
+           Subject: `${item.email}`
+         };
 
+         return new AWS.SNS({apiVersion: '2010-03-31'}).publish(params).promise().then(
+           function(data) {
+             console.log(`Message ${params.Message} send sent to the topic ${params.TopicArn}`);
+             console.log("MessageID is " + data.MessageId);
+             resolve(item);
+           }).catch(
+             function(err) {
+             console.error(err, err.stack);
+           });
 
+         });
+  })
+  //mail
+  .then((item)=>{
+
+    return new Promise(function(resolve, reject) {
+      var username = item.username == "" ? "" : " " + item.username;
+
+      mailParams = {
+         Destination: {
+             ToAddresses: [item.email]
+             //ToAddresses: ["success@simulator.amazonses.com"]
+         },
+         Message: {
+             Body: {
+                 Text: { Data:
+                 "Hallo"+username+"!\n"+
+                 "Du hast dich mit dieser Email beim DosenTelefon registriert.\n"+
+                 "Bitte nutze diesen Link https://dosen-telefon.de/register/"+item.uuid+"/"+item.token+", um dich anzumelden. Das geht jederzeit und von jedem Gerät aus. Dann kann der Dosen-Spaß auch schon direkt beginnen!\n"+
+                 "Zu deiner eigenen Sicherheit: gib diesen Link bitte nicht an andere weiter, sie könnten sich dann unter deinem Namen beim DosenTelefon anmelden.\n"+
+                 "Du hast dich nicht beim DosenTelefon registriert? Bitte ignoriere diese Email oder kontaktiere unseren Support https://dosen-telefon.de/abuse\n"+
+                 "Viel Spaß beim Verdrahten!\n"+
+                 "Die Dose\n"
+                 }
+
+             },
+
+             Subject: {
+               Data:
+               "Registrierung bei Dosen-Telefon.de"
+             },
+         },
+         Source: "registrierung@dosen-telefon.de"
+     };
+
+      ses.sendEmail(mailParams, function (err, data) {
+             if (err) {
+              return reject(err);
+             } else {
+              return resolve(item);
+             }
+         });
+    });
+  })
+  //return
+  .then((item)=>{
     //remove token from response
-    params.Item.token = "***";
+    item.token = "***";
     // create a response
     const response = {
       statusCode: 200,
-      body: JSON.stringify(params.Item),
+      body: JSON.stringify(item),
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
       },
     };
-    callback(null, response);
+
+    return callback(null, response);
   });
 };

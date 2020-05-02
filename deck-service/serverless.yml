@@ -1,0 +1,23 @@
+
+service: deck-service
+app: dosen-telefon
+org: dosentelefonde
+
+provider:
+  name: aws
+  runtime: python3.8
+  region: eu-west-1
+
+functions:
+  list:
+    handler: decks.lambda_handler
+    events:
+      - http:
+          path: /
+          method: get
+  get:
+    handler: deck.lambda_handler
+    events:
+      - http:
+          path: /{nameDeck}
+          method: get

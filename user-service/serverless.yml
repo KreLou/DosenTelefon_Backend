@@ -1,5 +1,5 @@
-org: gadmeer
-app: dosentelefon
+org: dosentelefonde
+app: dosen-telefon
 service: dosentelefon-user-service
 
 frameworkVersion: ">=1.1.0 <2.0.0"
@@ -11,13 +11,19 @@ provider:
   region: eu-west-1
   logs:
     websocket: true
-  iamManagedPolicies:
-      - 'arn:aws:iam::411554656372:policy/DosenTelefonLambdaSES'
-      - 'arn:aws:iam::411554656372:policy/executeAPIDosenTelefon'
   environment:
     DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
     CONNECT_TABLE: ${self:service}-connect-${opt:stage, self:provider.stage}
   iamRoleStatements:
+    - Effect: 'Allow'
+      Action:
+        - 'ses:SendEmail'
+        - 'ses:SendRawEmail'
+      Resource: "*"
+    - Effect: 'Allow'
+      Action:
+        - 'SNS:Publish'
+      Resource: "arn:aws:sns:eu-west-1:133355712185:dosen-telefon-registrations"
     - Effect: Allow
       Action:
         - dynamodb:Query
@@ -42,7 +48,7 @@ functions:
     handler: users/create.create
     events:
       - http:
-          path: users
+          path: /
           method: post
           cors: true
 
@@ -50,7 +56,7 @@ functions:
     handler: users/get.get
     events:
       - http:
-          path: users/{userId}
+          path: /{userId}
           method: get
           cors: true
           authorizer: authorizerFunc
@@ -59,7 +65,7 @@ functions:
     handler: users/update.update
     events:
       - http:
-          path: users/{userId}
+          path: /{userId}
           method: put
           cors: true
           authorizer: authorizerFunc
@@ -69,7 +75,7 @@ functions:
     handler: users/delete.delete
     events:
       - http:
-          path: users/{userId}
+          path: /{userId}
           method: delete
           cors: true
           authorizer: authorizerFunc
@@ -103,6 +109,15 @@ functions:
 
 resources:
   Resources:
+    GatewayResponseDefault4XX:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
     UsersDynamoDbTable:
       Type: 'AWS::DynamoDB::Table'
       DeletionPolicy: Retain
