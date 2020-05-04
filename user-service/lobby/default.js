@@ -154,8 +154,12 @@ module.exports.defaultHandler = async (event, context, callback) => {
 
           //both user informed, mark as pending
 
+
+
           await userDB.pendingState(userUuid, true);
           await userDB.pendingState(match.body.uuid, true);
+          await connectionDB.linkConnections(connectionIdExistingUser, userUuid, connectionIdNewUser);
+          await connectionDB.linkConnections(connectionIdNewUser, match.body.uuid, connectionIdExistingUser);
 
 
         return wrapReturn({statusCode:200,message:"Match found, tokens send."});
@@ -188,13 +192,25 @@ module.exports.defaultHandler = async (event, context, callback) => {
           });
         break;
       default:
-        var errorMsg = 'Unkown event '+data.event;
-        console.error(errorMsg);
-        return wrapReturn({
-          statusCode: 400,
-          headers: { 'Content-Type': 'text/plain' },
-          body: errorMsg,
-        });
+      //forward all other events to the other client
+      let interlocutorConnectionId = await connectionDB.getInterlocutor(connectionId);
+      if(interlocutorConnectionId) {
+        returnData = await websockets.sendWebSocketMessage(interlocutorConnectionId, {
+            "version" : 1,
+            "event" : data.event,
+            "body" : event.body
+          },event.requestContext.domainName);
+          if(returnData.statusCode != 200){
+              if (returnData.statusCode == 410){
+              //staled connection, removing
+              let returnData = await connectionDB.deleteConnection(interlocutorConnectionId);
+            }
+            console.log("sending message to websocket failed: ", returnData);
+            return wrapReturn(callback, returnData);
+          }
+        }
+      return wrapReturn({statusCode:200,message:"Forwarded message."});
+
         return;
       }
     }

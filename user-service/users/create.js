@@ -71,7 +71,7 @@ module.exports.create = async (event, context, callback) => {
       active: false,
       pending: false,
       createdAt: timestamp,
-      updatedAt: timestamp,
+      updatedAt: timestamp
     },
   };
 

@@ -248,7 +248,7 @@ module.exports.activeState = (userId, state) => {
 module.exports.pendingState = (userId, state) => {
   return new Promise(function(resolve, reject) {
     const timestamp = new Date().getTime();
-    const params = {
+    let params = {
       TableName: process.env.DYNAMODB_TABLE,
       Key: {
         uuid: userId,
@@ -262,6 +262,7 @@ module.exports.pendingState = (userId, state) => {
           'updatedAt = :updatedAt',
       ReturnValues: 'ALL_NEW',
     };
+
 
     // update the todo in the database
     dynamoDb.update(params, (error, result) => {
