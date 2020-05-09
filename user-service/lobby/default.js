@@ -185,12 +185,6 @@ module.exports.defaultHandler = async (event, context, callback) => {
             });
           }
 
-          return wrapReturn({
-            statusCode: 200,
-            headers: { 'Content-Type': 'text/plain' },
-            body: "User removed from lobby."
-          });
-        break;
       default:
       //forward all other events to the other client
       let interlocutorConnectionId = await connectionDB.getInterlocutor(connectionId);

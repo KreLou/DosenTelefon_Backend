@@ -15,9 +15,23 @@ functions:
       - http:
           path: /
           method: get
+          cors: true
   get:
     handler: deck.lambda_handler
     events:
       - http:
           path: /{nameDeck}
           method: get
+          cors: true
+
+resources:
+  Resources:
+    GatewayResponseDefault4XX:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
