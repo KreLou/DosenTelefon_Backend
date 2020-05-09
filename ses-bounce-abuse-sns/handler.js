@@ -8,19 +8,23 @@ module.exports.recieve = (event, context) => {
     var message = event.Records[0].Sns.Message;
     var subject = "General Notification";
     var data = {};
+
+//might be null, more resilent because not all messages are known
     try {
       data = JSON.parse(message);
-      console.log(data);
-      if(event.Records[0].Sns.Subject && event.Records[0].Sns.Subject != "null"){
-        subject = event.Records[0].Sns.Subject;
-      }
-      else {
-
-        subject = data.notificationType;
-      }
     } catch (e) {
+      //silently ignore
+    }
+
+    //prepare subject
+    if(event.Records[0].Sns.Subject && event.Records[0].Sns.Subject != "null"){
+      subject = event.Records[0].Sns.Subject;
+    }
+    else if(data.notificationType) {
+      subject = data.notificationType;
+    }
+    else {
       subject = "General Notification";
-      console.log(e);
     }
 
     var postData = {
@@ -29,7 +33,8 @@ module.exports.recieve = (event, context) => {
         "text": "*" + subject + "*",
         "icon_emoji": ":aws:"
     };
-    console.log("checking severity");
+
+    //severity
     var severity = "good";
 
     var dangerMessages = [
@@ -79,7 +84,8 @@ module.exports.recieve = (event, context) => {
             }
         }
     }
-    
+
+    //parse out email message if possible (to see it in slack)
     if(data.notificationType && "Received" == data.notificationType ){
       try {
         message = data.content;
